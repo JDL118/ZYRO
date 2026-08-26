@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05070d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Zyro">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Zyro</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#05070d;color:#f7fbff;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif}
+main{min-height:100vh;padding:calc(env(safe-area-inset-top) + 24px) 18px calc(env(safe-area-inset-bottom) + 18px);max-width:720px;margin:auto}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}
+.logo{font-size:32px;font-weight:900;letter-spacing:2px}.orb{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#50e9ff 28%,#3457ff 65%,#111936);box-shadow:0 0 28px #3eeaff66}
+h1{font-size:40px;line-height:1.05;margin:0 0 8px}.muted{color:#8e9bb7}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:24px 0}
+.card{padding:20px;border:1px solid #202a43;background:#0b1020;border-radius:22px;color:white;text-align:left}
+.card b{display:block;margin-top:12px;font-size:17px}.card span{color:#8995ae;font-size:13px}
+.chat{margin-top:12px;min-height:180px}.msg{display:flex;margin:10px 0}.bubble{padding:12px 15px;border-radius:17px;max-width:88%;white-space:pre-wrap;line-height:1.45}.ai{background:#10182a;border:1px solid #24304a}.me{margin-left:auto;background:#335dff}
+.composer{position:sticky;bottom:10px;display:flex;gap:8px;background:#0b1020ee;backdrop-filter:blur(16px);padding:9px;border:1px solid #25304a;border-radius:20px}
+textarea{flex:1;background:transparent;border:0;outline:0;color:white;font:inherit;resize:none;padding:10px}
+button{border:0;border-radius:14px;background:#4be4ff;color:#041018;font-weight:800;padding:0 15px}.mic{background:#1a2640;color:#b9f8ff}
+#keybox{display:none;margin-top:12px}.key{width:100%;padding:12px;background:#0b1020;border:1px solid #26324b;border-radius:12px;color:white}
+</style>
+</head>
+<body>
+<main>
+<header><div class="logo">ZYRO</div><div class="orb"></div></header>
+<h1>Your AI.<br>Your way.</h1>
+<p class="muted">Talk, create, and ask Zyro anything.</p>
+
+<section class="cards">
+<button class="card" onclick="focusPrompt()"><div>💬</div><b>Chat</b><span>Ask Zyro anything</span></button>
+<button class="card" onclick="voice()"><div>🎙️</div><b>Voice</b><span>Talk to Zyro</span></button>
+<button class="card" onclick="create('image')"><div>🖼️</div><b>Images</b><span>Create visuals</span></button>
+<button class="card" onclick="create('video')"><div>🎬</div><b>Videos</b><span>Create videos</span></button>
+</section>
+
+<div id="chat" class="chat"><div class="msg"><div class="bubble ai">Hey! I'm Zyro. What can I help you with?</div></div></div>
+
+<div class="composer">
+<button class="mic" onclick="voice()">🎙️</button>
+<textarea id="prompt" rows="1" placeholder="Message Zyro…"></textarea>
+<button onclick="send()">➤</button>
+</div>
+
+<button onclick="toggleKey()" style="margin-top:12px;background:transparent;color:#687792;font-size:12px">AI connection settings</button>
+<div id="keybox"><input id="key" class="key" type="password" placeholder="Gemini API key"></div>
+</main>
+<script>
+const $=x=>document.getElementById(x);
+$("key").value=localStorage.getItem("zyroKey")||"";
+function add(t,me=false){let r=document.createElement("div");r.className="msg";let b=document.createElement("div");b.className="bubble "+(me?"me":"ai");b.textContent=t;r.appendChild(b);$("chat").appendChild(r);scrollTo(0,document.body.scrollHeight);return b}
+function focusPrompt(){$("prompt").focus()}
+function toggleKey(){let b=$("keybox");b.style.display=b.style.display==="block"?"none":"block";localStorage.setItem("zyroKey",$("key").value)}
+async function send(){
+ let p=$("prompt").value.trim();if(!p)return;
+ add(p,true);$("prompt").value="";let out=add("Thinking…");
+ let k=$("key").value.trim();if(!k){out.textContent="Add your Gemini API key under AI connection settings first.";return}
+ localStorage.setItem("zyroKey",k);
+ try{
+  let r=await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key="+encodeURIComponent(k),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({contents:[{parts:[{text:p}]}]})});
+  let d=await r.json();if(!r.ok)throw Error(d.error?.message||"Request failed");
+  out.textContent=d.candidates?.[0]?.content?.parts?.map(x=>x.text||"").join("")||"No response.";
+ }catch(e){out.textContent="Connection error: "+e.message}
+}
+function voice(){
+ if(!("webkitSpeechRecognition" in window||"SpeechRecognition" in window)){alert("Voice input isn't supported in this browser.");return}
+ let R=window.SpeechRecognition||window.webkitSpeechRecognition,r=new R();r.lang="en-US";r.onresult=e=>{$("prompt").value=e.results[0][0].transcript;send()};r.start()
+}
+function create(type){$("prompt").value=type==="image"?"Create an image of ":"Create a video of ";focusPrompt()}
+$("prompt").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send()}})
+</script>
+</body>
+</html>
